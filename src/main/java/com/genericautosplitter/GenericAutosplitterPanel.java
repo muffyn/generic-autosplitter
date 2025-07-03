@@ -1,8 +1,6 @@
 package com.genericautosplitter;
 
-import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
-import net.runelite.api.GameState;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.PluginPanel;
 
@@ -10,69 +8,21 @@ import javax.inject.Inject;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
 import java.awt.*;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.Socket;
 
 public class GenericAutosplitterPanel extends PluginPanel
 {
     private final Client client;
     private final GenericAutosplitterConfig config;
     private final GenericAutosplitterPlugin splitter;
-    private PrintWriter writer;
-    private BufferedReader reader;
-    private Socket socket;
+    private final LivesplitController livesplitController;
     private JLabel status;
 
     @Inject
-    GenericAutosplitterPanel(Client client, PrintWriter writer, BufferedReader reader, GenericAutosplitterConfig config, GenericAutosplitterPlugin splitter){
+    GenericAutosplitterPanel(Client client, GenericAutosplitterConfig config, GenericAutosplitterPlugin splitter, LivesplitController livesplitController){
         this.client = client;
-        this.writer = writer;
-        this.reader = reader;
         this.config = config;
         this.splitter = splitter;
-    }
-
-    private void connect(){
-        try {
-            socket = new Socket("localhost", config.port());
-            writer = new PrintWriter(socket.getOutputStream());
-            reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            splitter.writer = writer;
-            splitter.reader = reader;
-
-            set_connected();
-
-            if (client.getGameState() == GameState.LOGGED_IN) {
-                String message = "Socket started at port <col=ff0000>" + config.port() + "</col>.";
-                client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null);
-            }
-
-        } catch (Exception e) {
-            if (client.getGameState() == GameState.LOGGED_IN) {
-                String message = "Could not start socket, did you start the LiveSplit server?";
-                client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null);
-            }
-        }
-    }
-
-    public void disconnect(){
-        try {
-            socket.close();
-            set_disconnected();
-
-            if (client.getGameState() == GameState.LOGGED_IN) {
-                client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Socket closed.", null);
-            }
-        } catch (Exception ignored) {}
-    }
-
-    private void control(String cmd){
-        try {
-            writer.write(cmd + "\r\n");
-            writer.flush();
-        } catch (Exception ignored) { }
+        this.livesplitController = livesplitController;
     }
 
     public void startPanel(){
@@ -106,8 +56,8 @@ public class GenericAutosplitterPanel extends PluginPanel
         b_connect.setFocusable(false);
         b_disconnect.setFocusable(false);
 
-        b_connect.addActionListener(e -> connect());
-        b_disconnect.addActionListener(e -> disconnect());
+        b_connect.addActionListener(e -> splitter.connect());
+        b_disconnect.addActionListener(e -> splitter.disconnect());
 
         connectionFrame.add(b_connect);
         connectionFrame.add(b_disconnect);
@@ -123,25 +73,46 @@ public class GenericAutosplitterPanel extends PluginPanel
 
         for (int i = 0; i < controllerButtons.length; i++){
             int finalI = i; // because lambda forces my hand
-            controllerButtons[i].addActionListener(e -> control(controls[finalI]));
+            controllerButtons[i].addActionListener(e -> livesplitController.sendMessage(controls[finalI]));
 
             controllerButtons[i].setFocusable(false);
             controllerFrame.add(controllerButtons[i], BorderLayout.CENTER);
         }
+
+        JPanel debugFrame = new JPanel();
+        debugFrame.setLayout(new GridLayout(4, 1));
+        debugFrame.setBorder(BorderFactory.createTitledBorder(new LineBorder(Color.ORANGE), "Debug Controller"));
+
+        JButton b_setoffset = new JButton("Toggle offset");
+        b_setoffset.addActionListener(e -> splitter.setUseOffset());
+        JButton b_startrun = new JButton("Start run");
+        b_startrun.addActionListener(e -> splitter.startRun());
+        JButton b_splitrun = new JButton("Split (game time)");
+        b_splitrun.addActionListener(e -> splitter.split());
+        JButton b_stoprun = new JButton("Complete run");
+        b_stoprun.addActionListener(e -> splitter.stopRun());
+
+
+        debugFrame.add(b_setoffset, BorderLayout.CENTER);
+        debugFrame.add(b_startrun, BorderLayout.CENTER);
+        debugFrame.add(b_splitrun, BorderLayout.CENTER);
+        debugFrame.add(b_stoprun, BorderLayout.CENTER);
 
         layout.add(statusFrame);
         layout.add(Box.createRigidArea(new Dimension(0, 15)));
         layout.add(connectionFrame);
         layout.add(Box.createRigidArea(new Dimension(0, 15)));
         layout.add(controllerFrame);
+        layout.add(Box.createRigidArea(new Dimension(0, 15)));
+        layout.add(debugFrame);
     }
 
-    public void set_connected(){
+    protected void set_connected(){
         status.setText("Connected");
         status.setForeground(Color.GREEN);
     }
 
-    public void set_disconnected(){
+    protected void set_disconnected(){
         status.setText("Not connected");
         status.setForeground(Color.RED);
     }

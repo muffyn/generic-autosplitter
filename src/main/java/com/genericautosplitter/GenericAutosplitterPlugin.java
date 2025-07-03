@@ -7,6 +7,8 @@ import net.runelite.api.*;
 import net.runelite.api.events.*;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.NotificationFired;
+import net.runelite.client.events.PluginMessage;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
@@ -16,13 +18,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.Instant;
+import java.util.Map;
 
 @Slf4j
 @PluginDescriptor(
@@ -31,15 +30,13 @@ import java.util.List;
 )
 public class GenericAutosplitterPlugin extends Plugin
 {
-	private static final Logger logger = LoggerFactory.getLogger(GenericAutosplitterPlugin.class);
+	protected static final Logger logger = LoggerFactory.getLogger(GenericAutosplitterPlugin.class);
 
-	// The number of quests completed. If this increases during a run, we've completed the quest.
-	private int questsComplete;
-	private int ticks;
+	protected int ticks;
+	protected int offset;
+	protected boolean useOffset = true;
 
-	// The variables to interact with livesplit
-	PrintWriter writer;
-	BufferedReader reader;
+	private int minutes = 0;
 
 	@Inject
 	private Client client;
@@ -53,257 +50,183 @@ public class GenericAutosplitterPlugin extends Plugin
 	// side panel
 	private NavigationButton navButton;
 	private GenericAutosplitterPanel panel;
+	private LivesplitController livesplitController;
 
 	// is the timer running?
 	private boolean started = false;
 	private boolean paused = false;
-
-	private List<Pair<Integer, Integer>> itemList;
-	private List<Pair<Integer, Integer>> varbList;
-	private List<Pair<Integer, Integer>> varpList;
+	protected long before;
+	protected GameState lastState;
 
 	@Provides
-	GenericAutosplitterConfig provideConfig(ConfigManager configManager)
-	{
+	GenericAutosplitterConfig provideConfig(ConfigManager configManager) {
 		return configManager.getConfig(GenericAutosplitterConfig.class);
 	}
 
 	@Override
-	protected void startUp()
-	{
-		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/generic_autosplitter_icon.png");
-		panel = new GenericAutosplitterPanel(client, writer, reader, config, this);
+	protected void startUp() {
+		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "/autosplitter_icon.png");
+		livesplitController = new LivesplitController(client, config, this);
+		panel = new GenericAutosplitterPanel(client, config,this, livesplitController);
 		navButton = NavigationButton.builder().tooltip("Generic Autosplitter")
 				.icon(icon).priority(6).panel(panel).build();
 		clientToolbar.addNavigation(navButton);
 
-		itemList = new ArrayList<>();
-		varbList = new ArrayList<>();
-		varpList = new ArrayList<>();
-
 		panel.startPanel();
+		before = Instant.now().toEpochMilli();
 	}
 
 	@Override
-	protected void shutDown()
-	{
-		sendMessage("pause");
-		itemList = null;
-		varbList = null;
-		varpList = null;
+	protected void shutDown() {
+		livesplitController.pause();
 		clientToolbar.removeNavigation(navButton);
-		panel.disconnect();  // terminates active socket
+		livesplitController.disconnect();  // terminates active socket
 	}
 
-	private void setupSplits(String configStr) {
-		itemList = new ArrayList<>();
-		varbList = new ArrayList<>();
-		varpList = new ArrayList<>();
-
-		final String[] configList = configStr.split("\n");
-
-		for (String line : configList) {
-			final String[] args = line.split(",");
-			final Pair<Integer, Integer> pair;
-			try {
-				int type = Integer.parseInt(args[1]);
-				if (type == 0) {
-					if (args.length < 4) { // default 1 item
-						pair = new Pair<>(Integer.parseInt(args[2]), 1);
-					} else {
-						pair = new Pair<>(Integer.parseInt(args[2]), Integer.parseInt(args[3]));
-					}
-					itemList.add(pair);
-				} else if (type == 1) {
-					pair = new Pair<>(Integer.parseInt(args[2]), Integer.parseInt(args[3]));
-					varbList.add(pair);
-				} else if (type == 2) {
-					pair = new Pair<>(Integer.parseInt(args[2]), Integer.parseInt(args[3]));
-					varpList.add(pair);
-				} else {
-					client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Autosplit: could not parse line: " + line, null);
-				}
-			} catch (Exception e) {
-				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Autosplit: could not parse line: " + line, null);
-			}
+	public void startRun() {
+		started = true;
+		before = Instant.now().toEpochMilli();
+		setOffset();
+		if (useOffset) {
+			ticks = offset;
+		} else {
+			ticks = offset;
+			offset = 0;
 		}
+
+		livesplitController.startRun();
+
+		setTime();
+
+	}
+
+	public void stopRun() {
+		completeRun();
+		ticks = 0;
+		offset = 0;
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		if (!started) {
-			started = true;
-			sendMessage("reset");
-			sendMessage("initgametime");
-			sendMessage("starttimer");
-			logger.info("Starting");
-
-			final String configStr;
-			//FIXME
-			//setupSplits(configStr);
-
-		} else if (started) {
-			logger.info("Final split achieved");
-			started = false;
-			sendMessage("getcurrenttimerphase");
-			switch (receiveMessage()) {
-				case "Running":
-					sendMessage("pause");
-					break;
-				case "NotRunning:":
-				case "Paused":
-				case "Ended":
-				default:
-					break;
-			}
+		if (started && !paused) {
+			ticks += 1;
 		}
 	}
-	/*
-	private void onGameStateChanged(GameStateChanged event) {
-		if (event.getGameState() == GameState.LOADING ||
-				event.getGameState() == GameState.LOGGED_IN ||
-				event.getGameState() == GameState.CONNECTION_LOST) {
-			if (paused) {
-				paused = false;
 
-				myOverlay.seconds = getStoredSeconds();
-				myOverlay.minutes = getStoredMinutes();
-				if (myOverlay.minutes == 0) {
-					myOverlay.minutes = client.getVarcIntValue(526);
-				}
-
-				// there is a 1.2 second penalty every time you hop
-				myOverlay.seconds += 12;
-				if (myOverlay.seconds >= 600) {
-					myOverlay.minutes += 1;
-					myOverlay.seconds -= 600;
-				}
-
-				// after penalty, see if we were desynced
-				int timePlayed = client.getVarcIntValue(526);
-				if (timePlayed > myOverlay.minutes) {
-					myOverlay.minutes = timePlayed;
-					myOverlay.seconds = 0;
-				}
-
-			}
-		} else if (!paused) {
-			paused = true;
-			setStoredSeconds(myOverlay.seconds);
-			setStoredMinutes(myOverlay.minutes);
+	@Subscribe
+	public void onNotificationFired(NotificationFired event) {
+		final String msg = event.getMessage();
+		if (msg.equalsIgnoreCase("autosplitter:split")) {
+			split();
 		}
-	}*/
-	/*
+	}
+
+	// watchdog does not yet implement this
+	@Subscribe
+	public void onPluginMessage(PluginMessage event) {
+		if ("autosplitter".equalsIgnoreCase(event.getNamespace())) {
+			Map<String, Object> data = event.getData();
+		}
+	}
+
+	@Subscribe
+	public void onVarClientIntChanged(VarClientIntChanged event) {
+		if (client.getVarcIntValue(526) > minutes) {
+			minutes = client.getVarcIntValue(526);
+			split(); //debug
+		}
+	}
+
 	@Subscribe
 	private void onGameStateChanged(GameStateChanged event) {
+		GameState state = event.getGameState();
+		long now = Instant.now().toEpochMilli();
+
 		if (started) {
-			if (event.getGameState() == GameState.LOADING ||
-					event.getGameState() == GameState.LOGGED_IN ||
-					event.getGameState() == GameState.CONNECTION_LOST) {
-				if (paused) {
-					logger.info("Resuming");
-					sendMessage("resume");
-					paused = false;
-				}
-			} else if (!paused) {
-				logger.info("Pausing");
-				sendMessage("pause");
+			if (lastState == GameState.LOADING || lastState == GameState.CONNECTION_LOST) {
+				// figure out how many GameTick events we lost, round it down, and add it to total
+				// bug: sometimes off by 1, maybe just server lag
+				int lostTicks = (int) Math.floor((now - before) / (1000.0f * 0.6f));
+				logger.info("Giving a {}t adjustment", lostTicks);
+				ticks += lostTicks;
+				setTime();
+			}
+
+			/* debug */
+			long duration = now - before;
+			float decimal = duration / 1000.0f;
+			logger.info("[{}t | {}s] {}", (decimal / 0.6f), decimal, lastState);
+			/* end debug */
+
+			if (state == GameState.HOPPING) {
+				// bug: the timer pauses for 1 tick too long relative to real time each world hop
+			}
+
+			if (paused && (state == GameState.LOGGED_IN || state == GameState.LOADING || state == GameState.CONNECTION_LOST)) {
+				setTime();
+				livesplitController.resume();
+				paused = false;
+
+			} else if (!paused && (state == GameState.HOPPING || state == GameState.LOGIN_SCREEN)) {
+				livesplitController.pause();
 				paused = true;
 			}
 		}
+
+		before = now;
+		lastState = state;
 	}
-	*/
 
 
 	public void completeRun() {
 		started = false;
-		sendMessage("getcurrenttimerphase");
-		String msg = receiveMessage();
-		logger.info("Completing");
+		livesplitController.completeRun();
 
-		while (!msg.equals("ERROR")) {
-			switch (msg) {
-				case "Running":
-					sendMessage("getsplitindex");
-					String i = receiveMessage();
-					sendMessage("skipsplit");
-					sendMessage("getsplitindex");
-					String j = receiveMessage();
-					if (i.equals(j)) {
-						split();
-						return;
-					}
-					break;
-				case "Paused":
-					sendMessage("resume");
-					break;
-				case "Ended":
-					sendMessage("unsplit");
-					break;
-				case "NotRunning":
-					return;
-			}
-			sendMessage("getcurrenttimerphase");
-			msg = receiveMessage();
-		}
-
-	}
-
-	@Subscribe
-	public void onItemContainerChanged(ItemContainerChanged event) {
-		final ItemContainer itemContainer = event.getItemContainer();
-		if (itemContainer != client.getItemContainer(InventoryID.INVENTORY)) {
-			return;
-		}
-
-		for (Pair<Integer, Integer> pair : itemList) {
-			if (itemContainer.count(pair.first) >= pair.second) {
-				split();
-				itemList.remove(pair);
-			}
-		}
-	}
-
-	@Subscribe
-	public void onVarbitChanged(VarbitChanged event) {
-		for (Pair<Integer, Integer> pair : varbList) {
-			if (client.getVarbitValue(pair.first) == pair.second) {
-				split();
-				varbList.remove(pair);
-			}
-		}
-
-		for (Pair<Integer, Integer> pair : varpList) {
-			if (client.getVarpValue(pair.first) == pair.second) {
-				split();
-				varpList.remove(pair);
-			}
-		}
-	}
-
-	private void sendMessage(String message) {
-		if (writer != null) {
-			writer.write(message + "\r\n");
-			writer.flush();
-		}
-	}
-
-	private String receiveMessage() {
-		if (reader != null) {
-			try {
-				return reader.readLine();
-			} catch (IOException e) {
-				return "ERROR";
-			}
-		}
-		return "ERROR";
 	}
 
 	public void split() {
 		logger.info("Splitting");
-		sendMessage("pausegametime");
-		sendMessage("setgametime " + BigDecimal.valueOf((ticks + 1) * 0.6).setScale(1, RoundingMode.HALF_UP));
-		sendMessage("split");
-		sendMessage("unpausegametime");
+		livesplitController.split();
+	}
+
+	public void pauseRun() {
+		livesplitController.pause();
+		paused = true;
+	}
+
+	public void resumeRun() {
+		livesplitController.resume();
+		paused = false;
+	}
+
+	public void setTime() {
+		int duration = ticks - offset;
+		String time = BigDecimal.valueOf((duration) * 0.6).setScale(1, RoundingMode.HALF_UP).toString();
+		livesplitController.setGameTime(time);
+	}
+
+	private void spoofTime() {
+		int duration = ticks - offset + 1;
+		String time = BigDecimal.valueOf((duration) * 0.6).setScale(1, RoundingMode.HALF_UP).toString();
+		livesplitController.setGameTime(time);
+	}
+
+	public void setOffset() {
+		offset = client.getVarcIntValue(526) * 100;
+	}
+
+	public void setUseOffset() {
+		useOffset = !useOffset;
+	}
+
+	public void connect() {
+		livesplitController.connect();
+		panel.set_connected();
+	}
+
+	public void disconnect() {
+		livesplitController.disconnect();
+		panel.set_disconnected();
+
 	}
 }
