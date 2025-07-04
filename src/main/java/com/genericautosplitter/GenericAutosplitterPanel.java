@@ -70,33 +70,10 @@ public class GenericAutosplitterPanel extends PluginPanel
         connectionFrame.add(b_connect);
         connectionFrame.add(b_disconnect);
 
-        // offset
-        offsetFrame = new JPanel();
-        offsetFrame.setLayout(new GridLayout(3, 1));
-        offsetFrame.setBorder(BorderFactory.createTitledBorder(new LineBorder(Color.LIGHT_GRAY), "Offset"));
-
-        l_time = new JLabel();
-        offsetFrame.add(l_time, BorderLayout.WEST);
-
-        tickFrame = new JPanel();
-        tickFrame.setLayout(new GridLayout(1, 2));
-        JLabel l_tick = new JLabel("Ticks:");
-        tickFrame.add(l_tick);
-        tf_time = new JTextField();
-        tf_time.addActionListener(e -> updateTextField());
-        tickFrame.add(tf_time);
-        offsetFrame.add(tickFrame);
-        tickFrame.setVisible(false);
-
-        b_toggleoffset = new JButton("");
-        b_toggleoffset.addActionListener(e -> splitter.toggleOffset());
-        b_toggleoffset.setFocusable(false);
-        offsetFrame.add(b_toggleoffset);
-
         // control buttons
         controlFrame = new JPanel();
         controlFrame.setLayout(new GridLayout(5, 1));
-        controlFrame.setBorder(BorderFactory.createTitledBorder(new LineBorder(Color.ORANGE), "Debug Controller"));
+        controlFrame.setBorder(BorderFactory.createTitledBorder(new LineBorder(Color.ORANGE), "Controller"));
 
         b_startreset = new JButton("Start run");
         b_startreset.addActionListener(e -> startOrReset());
@@ -120,13 +97,43 @@ public class GenericAutosplitterPanel extends PluginPanel
         b_endrun.setFocusable(false);
         controlFrame.add(b_endrun, BorderLayout.CENTER);
 
+        // offset
+        offsetFrame = new JPanel();
+        offsetFrame.setLayout(new GridLayout(4, 1));
+        offsetFrame.setBorder(BorderFactory.createTitledBorder(new LineBorder(Color.LIGHT_GRAY), "Offset"));
+
+        l_time = new JLabel();
+        offsetFrame.add(l_time, BorderLayout.WEST);
+
+        tickFrame = new JPanel();
+        tickFrame.setLayout(new GridLayout(1, 2));
+        JLabel l_tick = new JLabel("Ticks:");
+        tickFrame.add(l_tick);
+        tf_time = new JTextField();
+        tf_time.addActionListener(e -> updateTextField());
+        tickFrame.add(tf_time);
+        offsetFrame.add(tickFrame);
+        tickFrame.setVisible(false);
+
+        b_toggleoffset = new JButton("");
+        b_toggleoffset.addActionListener(e -> splitter.toggleOffset());
+        b_toggleoffset.setFocusable(false);
+        offsetFrame.add(b_toggleoffset);
+
+        JButton b_gametime = new JButton("Set offset to Time Played");
+        b_gametime.addActionListener(e -> setOffsetToTimePlayed());
+        b_gametime.setFocusable(false);
+        offsetFrame.add(b_gametime);
+
+        // build panel
+
         layout.add(statusFrame);
         layout.add(Box.createRigidArea(new Dimension(0, 15)));
         layout.add(connectionFrame);
         layout.add(Box.createRigidArea(new Dimension(0, 15)));
-        layout.add(offsetFrame);
-        layout.add(Box.createRigidArea(new Dimension(0, 15)));
         layout.add(controlFrame);
+        layout.add(Box.createRigidArea(new Dimension(0, 15)));
+        layout.add(offsetFrame);
 
         offsetFrame.setVisible(false);
         controlFrame.setVisible(false);
@@ -142,6 +149,7 @@ public class GenericAutosplitterPanel extends PluginPanel
     protected void setDisconnected() {
         status.setText("Not connected");
         status.setForeground(Color.RED);
+        resetRun();
         offsetFrame.setVisible(false);
         controlFrame.setVisible(false);
     }
@@ -176,18 +184,36 @@ public class GenericAutosplitterPanel extends PluginPanel
 
     protected void disableOffset() {
         tickFrame.setVisible(false);
-        l_time.setText("Next timer will start at 0.0s.");
+        l_time.setText("Next timer will start at 0.0s");
         b_toggleoffset.setText("Enable offset");
+    }
+
+    protected void startRun() {
+        b_startreset.setText("Reset");
+        splitter.startRun();
+        offsetFrame.setVisible(false);
+    }
+
+    protected void resetRun() {
+        b_startreset.setText("Start run");
+        splitter.reset();
+        offsetFrame.setVisible(true);
     }
 
     protected void startOrReset() {
         if (!splitter.started) {
-            b_startreset.setText("Reset");
-            splitter.startRun();
+            startRun();
         } else {
-            b_startreset.setText("Start run");
-            splitter.reset();
+            resetRun();
         }
+    }
+
+    protected void setOffsetToTimePlayed() {
+        int offset = splitter.getTimePlayed() * 100;
+        splitter.useOffset = true;
+        loadOffset(offset);
+        enableOffset();
+
     }
 
 }

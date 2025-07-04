@@ -1,8 +1,14 @@
 # Generic Autosplitter
 
+* Keeps track of time through login/logout, world hop, connection lost, and loading screens
+    * Does lag mitigation, though can be inaccurate +/- 1 tick each time you lag
+* Pauses timer visually when world hopping, and full pauses (goes gray) when entirely logged out
+* Lets you start the timer paused on the login screen, or start it with an offset
+* Lets you set up custom autosplits through watchdog
+
 Be sure to **have a splits file open**, or when the program tries to split it will stop the timer.
 
-Using this plugin requires the LiveSplit program.
+Using this plugin requires LiveSplit 
 
 Installation and setup guide can be found here:
 
@@ -23,12 +29,18 @@ or you have mismatching ports in the plugin settings and the LiveSplit server se
 If your status is green you are good to go.
 
 ## Splits
-Make sure you have `Compare Against > Game Time` selected on LiveSplit, or the timer will be slightly out of sync.
+Make sure you have `Compare Against > Game Time` selected on LiveSplit.
 
 Download the Watchdog plugin from the plugin hub to modify what events the plugin will split on.
 
+[Watchdog](https://runelite.net/plugin-hub/show/watchdog)
+
 ### Format:
-In Watchdog, create a Notification Event with the body `autosplitter:split`. When that event fires, LiveSplit will split.
+In Watchdog, create any event, and give When that event fires, LiveSplit will split.
+
+To create a split on level up, use a game message alert with the blanks replaced:
+`Congratulations, you've just advanced your _ level. You are now level _.`
+
 
 ---
 

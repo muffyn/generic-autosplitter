@@ -10,8 +10,6 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-import static com.genericautosplitter.GenericAutosplitterPlugin.logger;
-
 public class LivesplitController {
     private final Client client;
     private final GenericAutosplitterConfig config;
@@ -27,7 +25,7 @@ public class LivesplitController {
         this.splitter = splitter;
     }
 
-    public void connect() {
+    public void tryConnect() {
         try {
             socket = new Socket("localhost", config.port());
             writer = new PrintWriter(socket.getOutputStream());
@@ -70,20 +68,19 @@ public class LivesplitController {
     }
 
     public void startRun() {
-        splitter.reset();
         sendMessage("initgametime");
         sendMessage("starttimer");
     }
 
     public void split() {
-        if (!splitter.paused) {
-            sendMessage("pausegametime");
-        }
+
+        pauseGameTime();
+
         splitter.setTime();
         sendMessage("split");
-        if (!splitter.paused) {
-            sendMessage("unpausegametime");
-        }
+
+        unpauseGameTime();
+
     }
 
     public void skip() {
@@ -92,6 +89,14 @@ public class LivesplitController {
 
     public void undo() {
         sendMessage("undosplit");
+    }
+
+    public void pauseGameTime() {
+        sendMessage("pausegametime");
+    }
+
+    public void unpauseGameTime() {
+        sendMessage("unpausegametime");
     }
 
     public void pause() {
