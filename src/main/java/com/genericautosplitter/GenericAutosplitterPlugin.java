@@ -34,7 +34,7 @@ public class GenericAutosplitterPlugin extends Plugin
 
 	protected int ticks;
 	protected int offset;
-	protected boolean useOffset = true;
+	protected boolean useOffset;
 
 	private int minutes = 0;
 
@@ -45,6 +45,9 @@ public class GenericAutosplitterPlugin extends Plugin
 	private GenericAutosplitterConfig config;
 
 	@Inject
+	private ConfigManager configManager;
+
+	@Inject
 	private ClientToolbar clientToolbar;
 
 	// side panel
@@ -53,8 +56,8 @@ public class GenericAutosplitterPlugin extends Plugin
 	private LivesplitController livesplitController;
 
 	// is the timer running?
-	private boolean started = false;
-	private boolean paused = false;
+    boolean started = false;
+	boolean paused = false;
 	protected long before;
 	protected GameState lastState;
 
@@ -71,26 +74,49 @@ public class GenericAutosplitterPlugin extends Plugin
 		navButton = NavigationButton.builder().tooltip("Generic Autosplitter")
 				.icon(icon).priority(6).panel(panel).build();
 		clientToolbar.addNavigation(navButton);
-
 		panel.startPanel();
-		before = Instant.now().toEpochMilli();
 	}
 
 	@Override
 	protected void shutDown() {
-		livesplitController.pause();
+
+		disconnect();
 		clientToolbar.removeNavigation(navButton);
-		livesplitController.disconnect();  // terminates active socket
+
 	}
 
 	public void connect() {
 		livesplitController.connect();
-		panel.set_connected();
+
+		if (livesplitController.connected) {
+			livesplitController.pause();
+			panel.setConnected();
+
+			offset = loadTime();
+			panel.loadOffset(offset);
+			if (useOffset) {
+				panel.enableOffset();
+			} else {
+				panel.disableOffset();
+			}
+		}
 	}
 
 	public void disconnect() {
+		if (started && !paused) {
+			pause();
+			started = false;
+		}
+
+		saveTime(ticks);
 		livesplitController.disconnect();
-		panel.set_disconnected();
+		panel.setDisconnected();
+
+		if (started) {
+			saveTime(ticks);
+		} else {
+			saveTime(getTimePlayed() * 100);
+		}
 	}
 
 	/*
@@ -171,22 +197,29 @@ public class GenericAutosplitterPlugin extends Plugin
 	 */
 
 	public void startRun() {
+		if (started) {
+			return;
+		}
 		started = true;
+		paused = false;
 		before = Instant.now().toEpochMilli();
-		setOffset();
+
 		if (useOffset) {
 			ticks = offset;
 		} else {
-			ticks = offset;
-			offset = 0;
+			ticks = 0;
 		}
 
 		livesplitController.startRun();
 		setTime();
+
+		GameState state = client.getGameState();
+		if (state == GameState.LOGIN_SCREEN || state == GameState.HOPPING || state == GameState.LOGGING_IN) {
+			pause();
+		}
 	}
 
 	public void split() {
-		logger.info("Splitting");
 		livesplitController.split();
 	}
 
@@ -211,10 +244,8 @@ public class GenericAutosplitterPlugin extends Plugin
 	}
 
 	public void endRun() {
+		// does not automatically reset, in case the user wishes to undo
 		livesplitController.endRun();
-		started = false;
-		ticks = 0;
-		offset = 0;
 	}
 
 	public void reset() {
@@ -222,16 +253,44 @@ public class GenericAutosplitterPlugin extends Plugin
 	}
 
 	public void setTime() {
-		int duration = ticks - offset;
-		String time = BigDecimal.valueOf((duration) * 0.6).setScale(1, RoundingMode.HALF_UP).toString();
+		String time = buildTimeStr(ticks);
 		livesplitController.setGameTime(time);
+		saveTime(ticks);
 	}
 
-	public void setOffset() {
-		offset = client.getVarcIntValue(526) * 100;
+	public void toggleOffset() {
+		if (useOffset) {
+			useOffset = false;
+			panel.disableOffset();
+		} else {
+			useOffset = true;
+			panel.enableOffset();
+		}
 	}
 
-	public void setUseOffset() {
-		useOffset = !useOffset;
+	public String buildTimeStr(int duration) {
+		return BigDecimal.valueOf((duration) * 0.6).setScale(1, RoundingMode.HALF_UP).toString();
+	}
+
+	public int getTimePlayed() {
+		return client.getVarcIntValue(526);
+	}
+
+	private void saveTime(int duration) {
+		configManager.setRSProfileConfiguration("autosplitter", "duration", duration);
+	}
+
+	private int loadTime() {
+		try {
+			int time = Integer.parseInt(configManager.getRSProfileConfiguration("autosplitter", "duration"));
+			if (time == 0) {
+				time = getTimePlayed() * 100;
+			}
+			useOffset = true; // found previous paused run or account age
+			return time;
+		} catch (Exception e) {
+			useOffset = false; // no previous data found
+			return getTimePlayed() * 100;
+		}
 	}
 }

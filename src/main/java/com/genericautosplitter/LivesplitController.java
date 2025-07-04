@@ -19,6 +19,7 @@ public class LivesplitController {
     private PrintWriter writer;
     private BufferedReader reader;
     private Socket socket;
+    protected boolean connected = false;
 
     LivesplitController(Client client, GenericAutosplitterConfig config, GenericAutosplitterPlugin splitter) {
         this.client = client;
@@ -31,8 +32,10 @@ public class LivesplitController {
             socket = new Socket("localhost", config.port());
             writer = new PrintWriter(socket.getOutputStream());
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            connected = true;
 
         } catch (Exception e) {
+            connected = false;
             if (client.getGameState() == GameState.LOGGED_IN) {
                 String message = "Could not start socket, did you start the LiveSplit server?";
                 client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null);
@@ -42,6 +45,7 @@ public class LivesplitController {
 
     public void disconnect() {
         try {
+            connected = false;
             socket.close();
 
         } catch (Exception ignored) {}
@@ -72,10 +76,14 @@ public class LivesplitController {
     }
 
     public void split() {
-        sendMessage("pausegametime");
+        if (!splitter.paused) {
+            sendMessage("pausegametime");
+        }
         splitter.setTime();
         sendMessage("split");
-        sendMessage("unpausegametime");
+        if (!splitter.paused) {
+            sendMessage("unpausegametime");
+        }
     }
 
     public void skip() {
