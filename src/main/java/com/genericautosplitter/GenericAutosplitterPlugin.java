@@ -26,7 +26,7 @@ import java.util.Map;
 @Slf4j
 @PluginDescriptor(
 	name = "Generic Autosplitter",
-	description = "Connects to LiveSplit and sends splits on arbitrary events"
+	description = "Syncs LiveSplit to your time played and sends splits on Watchdog events"
 )
 public class GenericAutosplitterPlugin extends Plugin
 {
@@ -83,28 +83,19 @@ public class GenericAutosplitterPlugin extends Plugin
 		livesplitController.disconnect();  // terminates active socket
 	}
 
-	public void startRun() {
-		started = true;
-		before = Instant.now().toEpochMilli();
-		setOffset();
-		if (useOffset) {
-			ticks = offset;
-		} else {
-			ticks = offset;
-			offset = 0;
-		}
-
-		livesplitController.startRun();
-
-		setTime();
-
+	public void connect() {
+		livesplitController.connect();
+		panel.set_connected();
 	}
 
-	public void stopRun() {
-		completeRun();
-		ticks = 0;
-		offset = 0;
+	public void disconnect() {
+		livesplitController.disconnect();
+		panel.set_disconnected();
 	}
+
+	/*
+	 * Event handlers
+	 */
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
@@ -160,16 +151,14 @@ public class GenericAutosplitterPlugin extends Plugin
 
 			if (state == GameState.HOPPING) {
 				// bug: the timer pauses for 1 tick too long relative to real time each world hop
+				ticks += 1;
 			}
 
 			if (paused && (state == GameState.LOGGED_IN || state == GameState.LOADING || state == GameState.CONNECTION_LOST)) {
-				setTime();
-				livesplitController.resume();
-				paused = false;
+				resume();
 
 			} else if (!paused && (state == GameState.HOPPING || state == GameState.LOGIN_SCREEN)) {
-				livesplitController.pause();
-				paused = true;
+				pause();
 			}
 		}
 
@@ -177,11 +166,23 @@ public class GenericAutosplitterPlugin extends Plugin
 		lastState = state;
 	}
 
+	/*
+	 * Run control flow methods
+	 */
 
-	public void completeRun() {
-		started = false;
-		livesplitController.completeRun();
+	public void startRun() {
+		started = true;
+		before = Instant.now().toEpochMilli();
+		setOffset();
+		if (useOffset) {
+			ticks = offset;
+		} else {
+			ticks = offset;
+			offset = 0;
+		}
 
+		livesplitController.startRun();
+		setTime();
 	}
 
 	public void split() {
@@ -189,24 +190,39 @@ public class GenericAutosplitterPlugin extends Plugin
 		livesplitController.split();
 	}
 
-	public void pauseRun() {
+	public void pause() {
 		livesplitController.pause();
+		setTime();
 		paused = true;
 	}
 
-	public void resumeRun() {
+	public void resume() {
+		setTime();
 		livesplitController.resume();
 		paused = false;
 	}
 
-	public void setTime() {
-		int duration = ticks - offset;
-		String time = BigDecimal.valueOf((duration) * 0.6).setScale(1, RoundingMode.HALF_UP).toString();
-		livesplitController.setGameTime(time);
+	public void undo() {
+		livesplitController.undo();
 	}
 
-	private void spoofTime() {
-		int duration = ticks - offset + 1;
+	public void skip() {
+		livesplitController.skip();
+	}
+
+	public void endRun() {
+		livesplitController.endRun();
+		started = false;
+		ticks = 0;
+		offset = 0;
+	}
+
+	public void reset() {
+		livesplitController.reset();
+	}
+
+	public void setTime() {
+		int duration = ticks - offset;
 		String time = BigDecimal.valueOf((duration) * 0.6).setScale(1, RoundingMode.HALF_UP).toString();
 		livesplitController.setGameTime(time);
 	}
@@ -217,16 +233,5 @@ public class GenericAutosplitterPlugin extends Plugin
 
 	public void setUseOffset() {
 		useOffset = !useOffset;
-	}
-
-	public void connect() {
-		livesplitController.connect();
-		panel.set_connected();
-	}
-
-	public void disconnect() {
-		livesplitController.disconnect();
-		panel.set_disconnected();
-
 	}
 }

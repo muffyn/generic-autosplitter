@@ -66,10 +66,9 @@ public class LivesplitController {
     }
 
     public void startRun() {
-        sendMessage("reset");
+        splitter.reset();
         sendMessage("initgametime");
         sendMessage("starttimer");
-        logger.info("Starting");
     }
 
     public void split() {
@@ -77,6 +76,14 @@ public class LivesplitController {
         splitter.setTime();
         sendMessage("split");
         sendMessage("unpausegametime");
+    }
+
+    public void skip() {
+        sendMessage("skipsplit");
+    }
+
+    public void undo() {
+        sendMessage("undosplit");
     }
 
     public void pause() {
@@ -91,10 +98,9 @@ public class LivesplitController {
         sendMessage("setgametime " + time);
     }
 
-    public void completeRun() {
+    public void endRun() {
         sendMessage("getcurrenttimerphase");
         String msg = receiveMessage();
-        logger.info("Completing");
 
         while (!msg.equals("ERROR")) {
             switch (msg) {
@@ -106,15 +112,12 @@ public class LivesplitController {
                     String j = receiveMessage();
                     if (i.equals(j)) {
                         split();
-                        return;
                     }
                     break;
                 case "Paused":
                     sendMessage("resume");
                     break;
                 case "Ended":
-                    sendMessage("unsplit");
-                    break;
                 case "NotRunning":
                     return;
             }
@@ -123,7 +126,7 @@ public class LivesplitController {
         }
     }
 
-
-
-
+    public void reset() {
+        sendMessage("reset");
+    }
 }

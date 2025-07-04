@@ -62,57 +62,53 @@ public class GenericAutosplitterPanel extends PluginPanel
         connectionFrame.add(b_connect);
         connectionFrame.add(b_disconnect);
 
-
-        JPanel controllerFrame = new JPanel();
-        controllerFrame.setLayout(new GridLayout(6, 1));
-        controllerFrame.setBorder(BorderFactory.createTitledBorder(new LineBorder(Color.CYAN), "LiveSplit Controller"));
-
-        JButton[] controllerButtons = {new JButton("Split"), new JButton("Reset"), new JButton("Undo split"),
-                new JButton("Skip split"), new JButton("Pause"), new JButton("Resume")};
-        String[] controls = {"startorsplit", "reset", "unsplit", "skipsplit", "pause", "resume"};
-
-        for (int i = 0; i < controllerButtons.length; i++){
-            int finalI = i; // because lambda forces my hand
-            controllerButtons[i].addActionListener(e -> livesplitController.sendMessage(controls[finalI]));
-
-            controllerButtons[i].setFocusable(false);
-            controllerFrame.add(controllerButtons[i], BorderLayout.CENTER);
-        }
-
         JPanel debugFrame = new JPanel();
-        debugFrame.setLayout(new GridLayout(4, 1));
+        debugFrame.setLayout(new GridLayout(7, 1));
         debugFrame.setBorder(BorderFactory.createTitledBorder(new LineBorder(Color.ORANGE), "Debug Controller"));
 
         JButton b_setoffset = new JButton("Toggle offset");
         b_setoffset.addActionListener(e -> splitter.setUseOffset());
         JButton b_startrun = new JButton("Start run");
         b_startrun.addActionListener(e -> splitter.startRun());
-        JButton b_splitrun = new JButton("Split (game time)");
-        b_splitrun.addActionListener(e -> splitter.split());
-        JButton b_stoprun = new JButton("Complete run");
-        b_stoprun.addActionListener(e -> splitter.stopRun());
+        JButton b_split = new JButton("Split");
+        b_split.addActionListener(e -> splitter.split());
+        JButton b_undo = new JButton("Undo split");
+        b_undo.addActionListener(e -> splitter.undo());
+        JButton b_skip = new JButton("Skip split");
+        b_skip.addActionListener(e -> splitter.skip());
+        JButton b_endrun = new JButton("Complete all remaining splits");
+        b_endrun.addActionListener(e -> splitter.endRun());
+        JButton b_reset = new JButton("Reset");
+        b_reset.addActionListener(e -> splitter.reset());
 
-
+        b_setoffset.setFocusable(false);
         debugFrame.add(b_setoffset, BorderLayout.CENTER);
+        b_startrun.setFocusable(false);
         debugFrame.add(b_startrun, BorderLayout.CENTER);
-        debugFrame.add(b_splitrun, BorderLayout.CENTER);
-        debugFrame.add(b_stoprun, BorderLayout.CENTER);
+        b_split.setFocusable(false);
+        debugFrame.add(b_split, BorderLayout.CENTER);
+        b_endrun.setFocusable(false);
+        debugFrame.add(b_endrun, BorderLayout.CENTER);
+        b_undo.setFocusable(false);
+        debugFrame.add(b_undo, BorderLayout.CENTER);
+        b_skip.setFocusable(false);
+        debugFrame.add(b_skip, BorderLayout.CENTER);
+        b_reset.setFocusable(false);
+        debugFrame.add(b_reset, BorderLayout.CENTER);
 
         layout.add(statusFrame);
         layout.add(Box.createRigidArea(new Dimension(0, 15)));
         layout.add(connectionFrame);
         layout.add(Box.createRigidArea(new Dimension(0, 15)));
-        layout.add(controllerFrame);
-        layout.add(Box.createRigidArea(new Dimension(0, 15)));
         layout.add(debugFrame);
     }
 
-    protected void set_connected(){
+    protected void set_connected() {
         status.setText("Connected");
         status.setForeground(Color.GREEN);
     }
 
-    protected void set_disconnected(){
+    protected void set_disconnected() {
         status.setText("Not connected");
         status.setForeground(Color.RED);
     }
