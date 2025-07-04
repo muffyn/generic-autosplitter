@@ -5,7 +5,7 @@ import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
 
-@ConfigGroup("example")
+@ConfigGroup("autosplitter")
 public interface GenericAutosplitterConfig extends Config
 {
 	@ConfigItem(
