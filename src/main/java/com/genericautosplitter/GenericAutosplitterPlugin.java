@@ -140,6 +140,7 @@ public class GenericAutosplitterPlugin extends Plugin
 		}
 	}
 
+	/*
 	@Subscribe
 	public void onVarClientIntChanged(VarClientIntChanged event) {
 		if (client.getVarcIntValue(526) > minutes) {
@@ -147,6 +148,7 @@ public class GenericAutosplitterPlugin extends Plugin
 			logger.info("New time is " + minutes + " at tick " + ticks);
 		}
 	}
+ 	*/
 
 	@Subscribe
 	private void onGameStateChanged(GameStateChanged event) {
