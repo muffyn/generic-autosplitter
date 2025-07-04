@@ -20,24 +20,26 @@ public interface GenericAutosplitterConfig extends Config
 
 	@ConfigSection(
 			name = "Customization Instructions",
-			description = "Instructions on how to edit a config",
-			position = 1,
-			closedByDefault = true
+			description = "Instructions",
+			position = 1
 	)
 	String instructionsSection = "instructionsSect";
 
 	@ConfigItem(
 			keyName = "instructions",
 			name = "Instructions",
-			description = "Instructions on how to edit a config",
+			description = "Instructions",
 			position = 1,
 			section = "instructionsSect"
 	)
 	default String instructions()
 	{
-		return "Open LiveSplit. Right click it and start TCP Server. Open the RuneLite sidebar and press connect.\n" +
-				"To add automatic splits, first make sure you have splits showing on LiveSplit.\n" +
-				"Get the Watchdog plugin from the plugin hub. Create any trigger you want, and give it a NotificationEvent according to the readme.";
+		return "Better instructions are in the readme (right click plugin -> support)\n" +
+				"Open LiveSplit. Right click it and start TCP Server. Open the RuneLite sidebar and press connect. " +
+				"To add automatic splits, first make sure you have splits showing on LiveSplit. " +
+				"Get the Watchdog plugin from the plugin hub. Create any trigger you want, " +
+				"and give it a PluginMessage trigger with the namespace \"Autosplitter\" and name \"split\"";
+
 	}
 
 }

@@ -6,8 +6,6 @@
 * Lets you start the timer paused on the login screen, or start it with an offset
 * Lets you set up custom autosplits through watchdog
 
-Be sure to **have a splits file open**, or when the program tries to split it will stop the timer.
-
 Using this plugin requires LiveSplit 
 
 Installation and setup guide can be found here:
@@ -31,17 +29,23 @@ If your status is green you are good to go.
 ## Splits
 Make sure you have `Compare Against > Game Time` selected on LiveSplit.
 
+Be sure to **have a splits file open**, or when the program tries to split it will stop the timer.
+
+## Watchdog
+
 Download the Watchdog plugin from the plugin hub to modify what events the plugin will split on.
 
 [Watchdog](https://runelite.net/plugin-hub/show/watchdog)
 
-### Format:
-In Watchdog, create any event, and give When that event fires, LiveSplit will split.
+In Watchdog, create any alert, and give it a Plugin Message (`Advanced > Plugin Messages`) notification with Namespace `Autosplitter` and Method `split`. Nothing is required in data. When that alert fires, LiveSplit will split.
 
-To create a split on level up, use a game message alert with the blanks replaced:
-`Congratulations, you've just advanced your _ level. You are now level _.`
+For example, to create a split on level up, use a game message alert with the blanks replaced:
+
+`Congratulations, you've just advanced your _ level. You are now level _.` 
+
+Watchdog is very powerful, so be creative with your splits. Watchdog will not work in most PvM areas, at Jagex's request, so you would have to manually split if you wanted a split during a boss encounter (like Fight Caves).
 
 
 ---
 
-Want to use this plugin but need help? Ask me on Discord `Muffyn`. Or support me at ko-fi.com/muffyn_
+Want to use this plugin but need help? Ask me on Discord `muffyn`. Or support me at ko-fi.com/muffyn_
